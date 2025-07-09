@@ -1,10 +1,14 @@
 # global-dialogues-viz
 
-👉\[\[\[**This is the initial readme for your
-[simple-modern-uv](https://github.com/jlevy/simple-modern-uv) template.** Fill it in and
-delete this message!
-Below are general setup instructions that you may remove or keep and adapt for your
-project.\]\]\]
+Experiments with data from: https://globaldialogues.ai/
+
+To run, ensure you have uv, then:
+
+```shell
+uv run gdviz --help
+
+uv run gdviz
+```
 
 * * *
 
@@ -20,3 +24,5 @@ For instructions on publishing to PyPI, see [publishing.md](publishing.md).
 
 *This project was built from
 [simple-modern-uv](https://github.com/jlevy/simple-modern-uv).*
+```
+```
