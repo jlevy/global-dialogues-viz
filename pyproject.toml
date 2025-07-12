@@ -62,7 +62,7 @@ dev = [
 
 [tool.uv.sources]
 # For bleeding edge:
-kash-experimental = { git = "https://github.com/jlevy/kash-experimental" }
+kash-experimental = { git = "https://github.com/jlevy/kash-experimental", branch = "main" }
 kash-media = { git = "https://github.com/jlevy/kash-media", branch = "main" }
 kash-docs = { git = "https://github.com/jlevy/kash-docs", branch = "main" }
 kash-shell = { git = "https://github.com/jlevy/kash-shell", branch = "main" }
@@ -171,7 +171,7 @@ reportUnknownMemberType = false
 
 [tool.codespell]
 # Add here as needed:
-# ignore-words-list = "foo,bar"
+ignore-words-list = "particpants"
 # skip = "foo.py,bar.py"
 
 [tool.pytest.ini_options]

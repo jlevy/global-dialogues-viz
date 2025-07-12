@@ -4,8 +4,10 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-
-from global_dialogues_viz.csv_utils import sniff_csv_metadata
+from kash.exec import kash_action
+from kash.model import Item, Param
+from kash.utils.file_utils.csv_utils import sniff_csv_metadata
+from kash.workspaces import current_ws
 
 log = logging.getLogger(__name__)
 
@@ -85,3 +87,39 @@ def simplify_csv(
 
     # Write to output file
     filtered_df.to_csv(output_path, index=False)
+
+
+# Participants data.
+# NB: keep the typo "particpants"! (not "participants").
+CSV_URL = "https://huggingface.co/datasets/collective-intelligence-project/Global-AI-Dialogues/raw/main/Global%20AI%20Dialogues%20Data%20-%20September%202024/particpants.csv"
+TARGET_COLUMNS = [
+    "Participant Id",
+    "How old are you?",
+    "What is your gender?",
+    "What religious group or faith do you most identify with?",
+    "What country or region do you most identify with?",
+    "What do you think your life might be like in 30 years? Alt: Imagine life 30 years from now. What's the biggest difference you notice in daily life compared to today? (English)",
+]
+
+
+@kash_action(
+    params=(Param("max_rows", "Maximum number of rows to include in the visualization", type=int),)
+)
+def gd_csv_simplify_participants(item: Item, max_rows: int = 0) -> Item:
+    """
+    Clean up/simplify the Global Dialogues participant CSV file.
+    """
+    ws = current_ws()
+    assert item.store_path
+
+    simplified_data = item.derived_copy(title="participants_simple")
+    target_path = ws.target_path_for(simplified_data)
+
+    log.warning("Simplifying data to: %s", target_path)
+
+    simplify_csv(ws.base_dir / item.store_path, target_path, TARGET_COLUMNS, max_rows)
+    simplified_data.external_path = str(target_path)
+
+    log.warning("Simplified data: %s", simplified_data)
+
+    return simplified_data

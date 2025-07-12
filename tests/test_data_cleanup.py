@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from global_dialogues_viz.data_cleanup import simplify_csv
+from global_dialogues_viz.gd_csv_cleanup import simplify_csv
 
 
 def test_simplify_csv_basic():

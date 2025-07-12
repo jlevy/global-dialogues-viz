@@ -5,48 +5,9 @@ import logging
 from pathlib import Path
 from typing import Literal
 
-from kash.exec import kash_action
-from kash.model import Item, Param
-from kash.workspaces import current_ws
-
-from global_dialogues_viz.data_cleanup import simplify_csv
+from global_dialogues_viz.gd_csv_cleanup import CSV_URL, gd_csv_simplify_participants
 
 log = logging.getLogger(__name__)
-
-# Participants data.
-# NB: keep the typo "particpants"! (not "participants").
-CSV_URL = "https://huggingface.co/datasets/collective-intelligence-project/Global-AI-Dialogues/raw/main/Global%20AI%20Dialogues%20Data%20-%20September%202024/particpants.csv"
-TARGET_COLUMNS = [
-    "Participant Id",
-    "How old are you?",
-    "What is your gender?",
-    "What religious group or faith do you most identify with?",
-    "What country or region do you most identify with?",
-    "What do you think your life might be like in 30 years? Alt: Imagine life 30 years from now. What's the biggest difference you notice in daily life compared to today? (English)",
-]
-
-
-@kash_action(
-    params=(Param("max_rows", "Maximum number of rows to include in the visualization", type=int),)
-)
-def simplify_participant_csv(item: Item, max_rows: int = 0) -> Item:
-    """
-    Clean up/simplify the participant CSV file.
-    """
-    ws = current_ws()
-    assert item.store_path
-
-    simplified_data = item.derived_copy(title="participants_simple")
-    target_path = ws.target_path_for(simplified_data)
-
-    log.warning("Simplifying data to: %s", target_path)
-
-    simplify_csv(ws.base_dir / item.store_path, target_path, TARGET_COLUMNS, max_rows)
-    simplified_data.external_path = str(target_path)
-
-    log.warning("Simplified data: %s", simplified_data)
-
-    return simplified_data
 
 
 def create_viz(ws_path: Path, data_url: str, style: str, max_rows: int = 0) -> str:
@@ -54,8 +15,10 @@ def create_viz(ws_path: Path, data_url: str, style: str, max_rows: int = 0) -> s
     Use a kash workspace to clean up and visualize the participants CSV file.
     """
     from kash.exec import kash_runtime, prepare_action_input
+    from kash.kits.experimental.actions.create_embeddings_graph_view import (
+        create_embeddings_graph_view,
+    )
     from kash.kits.experimental.actions.embed_table_rows import embed_table_rows
-    from kash.kits.experimental.actions.show_embeddings_graph_view import show_embeddings_graph_view
 
     # Run all actions in the context of this workspace.
     with kash_runtime(ws_path) as runtime:
@@ -70,13 +33,13 @@ def create_viz(ws_path: Path, data_url: str, style: str, max_rows: int = 0) -> s
 
         log.warning("Original data: %s", orig_data)
 
-        simpler_data = simplify_participant_csv(orig_data, max_rows=max_rows)
+        simpler_data = gd_csv_simplify_participants(orig_data, max_rows=max_rows)
 
         log.warning("Simplified data: %s", simpler_data)
 
         embedding_data = embed_table_rows(simpler_data)
 
-        final = show_embeddings_graph_view(embedding_data, style=style)
+        final = create_embeddings_graph_view(embedding_data, style=style)
 
         log.warning("Final: output file: %s", final.store_path)
 
@@ -139,7 +102,7 @@ def main() -> None:
 
     output_path = create_viz(ws_path, CSV_URL, args.style, args.rows)
 
-    show(output_path)
+    show(ws_path / output_path)
 
 
 if __name__ == "__main__":
