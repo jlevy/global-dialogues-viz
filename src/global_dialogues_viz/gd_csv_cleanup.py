@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +14,11 @@ log = logging.getLogger(__name__)
 
 
 def simplify_csv(
-    input_path: Path, output_path: Path, target_columns: list[str], max_rows: int = 0
+    input_path: Path,
+    output_path: Path,
+    target_columns: list[str],
+    max_rows: int = 0,
+    column_transformations: dict[str, Callable[[str], str]] | None = None,
 ) -> None:
     """
     Process the CSV file to clean up format and extract specific columns.
@@ -72,6 +77,19 @@ def simplify_csv(
         log.info("Truncating data from %d to %d rows", len(filtered_df), max_rows)
         filtered_df = filtered_df.head(max_rows)
 
+    # Apply column transformations
+    if column_transformations:
+        for column_name, transform_func in column_transformations.items():
+            if column_name in filtered_df.columns:
+                log.info("Applying transformation to column: %s", column_name)
+                column_series = filtered_df[column_name].fillna("").astype(str)  # pyright: ignore
+                filtered_df[column_name] = column_series.apply(transform_func)
+                log.info(
+                    "Column '%s' values after transformation: %s",
+                    column_name,
+                    filtered_df[column_name].value_counts().to_dict(),  # pyright: ignore
+                )
+
     log.info("Filtered data shape: %s", filtered_df.shape)
     log.info("Non-null values per column:")
     for col in filtered_df.columns:
@@ -89,17 +107,32 @@ def simplify_csv(
     filtered_df.to_csv(output_path, index=False)
 
 
+def simplify_sentiment(value: str) -> str:
+    if "more excited" in value.lower():
+        return "excited"
+    elif "more concerned" in value.lower():
+        return "concerned"
+    elif "equally" in value.lower():
+        return "neutral"
+    else:
+        return ""
+
+
 # Participants data.
 # NB: keep the typo "particpants"! (not "participants").
 CSV_URL = "https://huggingface.co/datasets/collective-intelligence-project/Global-AI-Dialogues/raw/main/Global%20AI%20Dialogues%20Data%20-%20September%202024/particpants.csv"
 TARGET_COLUMNS = [
-    "Participant Id",
-    "How old are you?",
-    "What is your gender?",
-    "What religious group or faith do you most identify with?",
-    "What country or region do you most identify with?",
+    "Overall, would you say the increased use of artificial intelligence (AI) in daily life makes you feel…",
     "What do you think your life might be like in 30 years? Alt: Imagine life 30 years from now. What's the biggest difference you notice in daily life compared to today? (English)",
+    "What is your gender?",
+    "How old are you?",
+    "What country or region do you most identify with?",
+    "What religious group or faith do you most identify with?",
+    # "Participant Id",
 ]
+COLUMN_TRANSFORMATIONS: dict[str, Callable[[str], str]] = {
+    "Overall, would you say the increased use of artificial intelligence (AI) in daily life makes you feel…": simplify_sentiment,
+}
 
 
 @kash_action(
@@ -117,9 +150,31 @@ def gd_csv_simplify_participants(item: Item, max_rows: int = 0) -> Item:
 
     log.warning("Simplifying data to: %s", target_path)
 
-    simplify_csv(ws.base_dir / item.store_path, target_path, TARGET_COLUMNS, max_rows)
+    simplify_csv(
+        ws.base_dir / item.store_path, target_path, TARGET_COLUMNS, max_rows, COLUMN_TRANSFORMATIONS
+    )
     simplified_data.external_path = str(target_path)
 
     log.warning("Simplified data: %s", simplified_data)
 
     return simplified_data
+
+
+## Tests
+
+
+def test_simplify_sentiment() -> None:
+    """Test the simplify_sentiment function."""
+    assert simplify_sentiment("more excited") == "excited"
+    assert simplify_sentiment("MORE EXCITED") == "excited"
+    assert simplify_sentiment("more concerned") == "concerned"
+    assert simplify_sentiment("MORE CONCERNED") == "concerned"
+    assert simplify_sentiment("equally") == "neutral"
+    assert simplify_sentiment("EQUALLY") == "neutral"
+    assert simplify_sentiment("something else") == ""
+    assert simplify_sentiment("") == ""
+
+
+if __name__ == "__main__":
+    test_simplify_sentiment()
+    print("✅ All tests passed!")
